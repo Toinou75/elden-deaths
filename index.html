@@ -72,7 +72,7 @@
       grid-template-columns: 1fr 310px;
       min-height: calc(100vh - 57px);
     }
-    main { padding: 20px 24px; overflow: auto; }
+    main { padding: 20px 24px; min-width: 0; overflow: hidden; }
     aside {
       background: var(--dark2);
       border-left: 1px solid var(--border);
@@ -111,7 +111,16 @@
     .boss-table { width: 100%; border-collapse: collapse; }
     .boss-row { border-bottom: 1px solid rgba(46,37,16,0.5); transition: background 0.12s; }
     .boss-row:hover { background: rgba(201,168,76,0.03); }
-    .boss-name-cell { padding: 9px 8px; font-size: 0.82rem; color: var(--text); }
+    .table-wrap { overflow-x: auto; }
+    .boss-name-cell {
+      padding: 9px 8px; font-size: 0.82rem; color: var(--text);
+      position: sticky; left: 0; background: var(--dark); z-index: 1;
+    }
+    .th-boss {
+      position: sticky; left: 0; background: var(--dark); z-index: 2;
+      text-align: left; padding: 4px 8px; font-size: 0.68rem;
+      color: var(--text-muted); font-weight: 400; white-space: nowrap;
+    }
     .dlc-badge {
       font-size: 0.58rem; background: rgba(139,40,40,0.25);
       border: 1px solid var(--red); color: var(--red-light);
@@ -549,9 +558,9 @@ function renderBossList() {
         <span class="area-arrow" id="arr-${area.id}">▼</span>
       </div>
       <div class="area-body" id="ab-${area.id}">
-        <table class="boss-table">
+        <div class="table-wrap"><table class="boss-table">
           <thead><tr>
-            <th style="text-align:left;padding:4px 8px;font-size:0.68rem;color:var(--text-muted);font-weight:400;">Boss</th>
+            <th class="th-boss">Boss</th>
             ${pids.map(pid => {
               const p = players[pid];
               return `<th class="th-player"><span class="th-dot" style="background:${p.color}"></span>${p.name}</th>`;
@@ -580,7 +589,7 @@ function renderBossList() {
               </tr>`;
             }).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>`;
   }
