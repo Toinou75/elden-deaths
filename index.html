@@ -159,6 +159,8 @@
     .lb-name { flex: 1; font-size: 0.82rem; }
     .lb-deaths { font-size: 0.95rem; font-weight: 700; color: var(--red-light); }
     .lb-deaths.z { color: var(--text-muted); }
+    .lb-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; transition: color 0.15s; line-height: 1; }
+    .lb-del:hover { color: var(--red-light); }
 
     .hb-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 3px; font-size: 0.75rem; border-bottom: 1px solid rgba(46,37,16,0.4); }
     .hb-name { color: var(--text); flex: 1; padding-right: 6px; }
@@ -612,6 +614,7 @@ function renderLeaderboard() {
           <div class="p-dot" style="background:${p.color}"></div>
           <span class="lb-name">${p.name}${p.id===myId?' (vous)':''}</span>
           <span class="lb-deaths ${p.tot===0?'z':''}">${p.tot}</span>
+          <button class="lb-del" onclick="deletePlayer('${p.id}','${p.name}')" title="Supprimer">✕</button>
         </div>`)
       .join('')
     : '<div class="empty-msg">Aucun joueur connecté.</div>';
@@ -648,6 +651,19 @@ function renderStats() {
 
 // ── GLOBALS (inline handlers) ─────────────────────────
 window.bump = (bossId, pid, delta) => { if (pid === myId) bump(bossId, pid, delta); };
+
+window.deletePlayer = async (pid, name) => {
+  if (!confirm(`Supprimer ${name} et toutes ses morts ?`)) return;
+  const updates = { [`players/${pid}`]: null };
+  ALL_BOSSES.forEach(b => { updates[`deaths/${b.id}/${pid}`] = null; });
+  await update(ref(db), updates);
+  if (pid === myId) {
+    localStorage.removeItem('er_pid');
+    localStorage.removeItem('er_name');
+    localStorage.removeItem('er_color');
+    location.reload();
+  }
+};
 window.toggleArea = id => {
   const body = document.getElementById(`ab-${id}`);
   const arr  = document.getElementById(`arr-${id}`);
