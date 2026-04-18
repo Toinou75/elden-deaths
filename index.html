@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elden Ring — Death Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #c9a84c;
+      --gold-light: #e8d080;
+      --gold-dark: #7a5c10;
+      --dark:  #090909;
+      --dark2: #111111;
+      --dark3: #1c1c1c;
+      --dark4: #252525;
+      --text:  #c8b98a;
+      --text-light: #e8d8b0;
+      --text-muted: #5e5236;
+      --red:       #8b2828;
+      --red-light: #cc4444;
+      --border: #2e2510;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'Cinzel', serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(180deg, #130e00 0%, var(--dark) 100%);
+      border-bottom: 1px solid var(--gold-dark);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 12px;
+    }
+    .logo {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(0.9rem, 2vw, 1.3rem);
+      color: var(--gold);
+      text-shadow: 0 0 24px rgba(201,168,76,0.35);
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+    .logo span { color: var(--red-light); }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .conn-status { font-size: 0.7rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+    .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; flex-shrink: 0; }
+    .conn-dot.ok { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    #player-badge {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 6px 14px; border: 1px solid var(--gold-dark); border-radius: 4px;
+      transition: border-color 0.2s, background 0.2s; font-size: 0.85rem;
+    }
+    #player-badge:hover { border-color: var(--gold); background: rgba(201,168,76,0.06); }
+    .p-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 310px;
+      min-height: calc(100vh - 57px);
+    }
+    main { padding: 20px 24px; overflow: auto; }
+    aside {
+      background: var(--dark2);
+      border-left: 1px solid var(--border);
+      padding: 18px 16px;
+      position: sticky;
+      top: 57px;
+      height: calc(100vh - 57px);
+      overflow-y: auto;
+    }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    input[type="text"], select {
+      background: var(--dark3); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 12px; font-family: inherit;
+      font-size: 0.82rem; border-radius: 4px; outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--gold-dark); }
+    input[type="text"] { flex: 1; min-width: 160px; }
+    select option { background: var(--dark3); }
+
+    /* ── AREA ── */
+    .area-section { margin-bottom: 20px; }
+    .area-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 2px; margin-bottom: 6px;
+      border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+    }
+    .area-title { font-size: 0.78rem; color: var(--gold); letter-spacing: 1.5px; text-transform: uppercase; flex: 1; }
+    .area-meta { font-size: 0.68rem; color: var(--text-muted); }
+    .area-arrow { font-size: 0.65rem; color: var(--text-muted); transition: transform 0.2s; }
+    .area-arrow.closed { transform: rotate(-90deg); }
+    .area-body { overflow: hidden; }
+
+    /* ── BOSS TABLE ── */
+    .boss-table { width: 100%; border-collapse: collapse; }
+    .boss-row { border-bottom: 1px solid rgba(46,37,16,0.5); transition: background 0.12s; }
+    .boss-row:hover { background: rgba(201,168,76,0.03); }
+    .boss-name-cell { padding: 9px 8px; font-size: 0.82rem; color: var(--text); }
+    .dlc-badge {
+      font-size: 0.58rem; background: rgba(139,40,40,0.25);
+      border: 1px solid var(--red); color: var(--red-light);
+      padding: 1px 5px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+    }
+    .boss-total { font-size: 0.62rem; color: var(--text-muted); margin-left: 6px; }
+    .th-player { padding: 5px 8px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; text-align: center; white-space: nowrap; }
+    .th-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 3px; vertical-align: middle; }
+    .cell-deaths { padding: 5px 6px; text-align: center; }
+    .counter { display: inline-flex; align-items: center; gap: 3px; }
+    .cbtn {
+      width: 22px; height: 22px; border: 1px solid var(--border); background: var(--dark3);
+      color: var(--text-muted); cursor: pointer; font-size: 1rem; display: flex;
+      align-items: center; justify-content: center; border-radius: 3px; transition: all 0.12s; line-height: 1;
+    }
+    .cbtn:hover { border-color: var(--gold-dark); color: var(--gold); background: var(--dark4); }
+    .cbtn.minus:hover { border-color: var(--red); color: var(--red-light); }
+    .cval { min-width: 26px; text-align: center; font-size: 0.88rem; color: var(--text-light); font-weight: 600; }
+    .cval.z { color: var(--text-muted); }
+    .cval.h { color: var(--red-light); }
+
+    /* ── SIDEBAR ── */
+    .s-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 2px; color: var(--gold); margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+    .s-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    .lb-item {
+      display: flex; align-items: center; gap: 8px; padding: 9px 6px;
+      border-radius: 4px; border: 1px solid transparent; margin-bottom: 3px; transition: background 0.12s;
+    }
+    .lb-item:hover { background: rgba(201,168,76,0.04); }
+    .lb-item.me { border-color: var(--border); background: rgba(201,168,76,0.05); }
+    .lb-rank { font-size: 0.72rem; color: var(--text-muted); min-width: 22px; text-align: center; }
+    .lb-rank.g { color: #e8c547; }
+    .lb-rank.s { color: #b0b0b0; }
+    .lb-rank.b { color: #cd8040; }
+    .lb-name { flex: 1; font-size: 0.82rem; }
+    .lb-deaths { font-size: 0.95rem; font-weight: 700; color: var(--red-light); }
+    .lb-deaths.z { color: var(--text-muted); }
+
+    .hb-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 3px; font-size: 0.75rem; border-bottom: 1px solid rgba(46,37,16,0.4); }
+    .hb-name { color: var(--text); flex: 1; padding-right: 6px; }
+    .hb-count { color: var(--red-light); font-weight: 600; white-space: nowrap; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .stat-box { background: var(--dark3); border: 1px solid var(--border); border-radius: 4px; padding: 10px 8px; text-align: center; }
+    .stat-val { font-size: 1.3rem; font-weight: 700; color: var(--gold); }
+    .stat-lbl { font-size: 0.58rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal { background: var(--dark2); border: 1px solid var(--gold-dark); border-radius: 6px; padding: 30px; width: 390px; max-width: 92vw; }
+    .modal-title { font-family: 'Cinzel Decorative', serif; font-size: 1.05rem; color: var(--gold); margin-bottom: 6px; text-align: center; }
+    .modal-sub { font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-bottom: 22px; line-height: 1.6; }
+    .flabel { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; display: block; }
+    .fgroup { margin-bottom: 16px; }
+    .finput { width: 100%; background: var(--dark3); border: 1px solid var(--border); color: var(--text-light); padding: 10px 13px; font-family: inherit; font-size: 0.88rem; border-radius: 4px; outline: none; }
+    .finput:focus { border-color: var(--gold-dark); }
+    .colors { display: flex; gap: 7px; flex-wrap: wrap; }
+    .color-opt { width: 27px; height: 27px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; }
+    .color-opt:hover { transform: scale(1.15); }
+    .color-opt.sel { border-color: #fff; transform: scale(1.1); }
+    .btn {
+      width: 100%; padding: 11px; background: var(--gold-dark); border: 1px solid var(--gold);
+      color: var(--gold-light); font-family: inherit; font-size: 0.85rem; letter-spacing: 1px;
+      text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: all 0.2s; margin-top: 6px;
+    }
+    .btn:hover { background: var(--gold); color: var(--dark); }
+
+    .hidden { display: none !important; }
+    .empty-msg { color: var(--text-muted); font-size: 0.8rem; padding: 6px 0; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--dark2); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gold-dark); }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal">
+    <div class="modal-title">Bienvenue, Terni</div>
+    <div class="modal-sub">Choisissez votre nom et votre couleur.<br>Vos morts seront visibles par tous en temps réel.</div>
+    <div class="fgroup">
+      <label class="flabel" for="name-input">Votre nom de joueur</label>
+      <input type="text" id="name-input" class="finput" placeholder="Ex: Toinou" maxlength="20" autocomplete="off" />
+    </div>
+    <div class="fgroup">
+      <label class="flabel">Votre couleur</label>
+      <div class="colors" id="color-picker"></div>
+    </div>
+    <button class="btn" id="setup-btn">Entrer dans l'Entre-Terre</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">Elden Ring — <span>Death</span> Tracker</div>
+  <div class="header-right">
+    <div class="conn-status"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">Connexion…</span></div>
+    <div id="player-badge" title="Cliquez pour changer de nom">
+      <div class="p-dot" id="badge-dot"></div>
+      <span id="badge-name">…</span>
+    </div>
+  </div>
+</header>
+
+<!-- Layout -->
+<div class="layout">
+  <main>
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="🔍  Rechercher un boss…" />
+      <select id="area-filter"><option value="">Toutes les zones</option></select>
+    </div>
+    <div id="boss-list"><div style="color:var(--text-muted);padding:24px;letter-spacing:2px;">Chargement…</div></div>
+  </main>
+
+  <aside>
+    <div class="s-title">⚔ Classement</div>
+    <div id="leaderboard"></div>
+    <hr class="s-divider" />
+    <div class="s-title">☠ Boss les plus meurtriers</div>
+    <div id="hardest"></div>
+    <hr class="s-divider" />
+    <div class="s-title">Statistiques</div>
+    <div class="stats-grid" id="stats"></div>
+  </aside>
+</div>
+
+<script type="module">
+import { initializeApp }            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, update, get, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ════════════════════════════════════════════════════
+//  🔧 CONFIGURATION FIREBASE  ← remplacez ces valeurs
+// ════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyBAQrazJguyAv51MhWZ-ZVOzI9fuTtW3us",
+  authDomain:        "elden-death.firebaseapp.com",
+  databaseURL:       "https://elden-death-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "elden-death",
+  storageBucket:     "elden-death.firebasestorage.app",
+  messagingSenderId: "318718359430",
+  appId:             "1:318718359430:web:3088ff584bcab4fd919e07"
+};
+// ════════════════════════════════════════════════════
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// ── PALETTE ──────────────────────────────────────────
+const COLORS = [
+  '#c9a84c','#e05252','#52a8e0','#52e07e','#b052e0',
+  '#e09452','#52ddd4','#e052b4','#9696a0','#d4e052'
+];
+
+// ── BOSS DATA ────────────────────────────────────────
+const AREAS = [
+  { id:'tutorial', name:'Tutoriel', dlc:false, bosses:[
+    { id:'grafted_scion', name:'Écorché Greffé' },
+  ]},
+  { id:'limgrave', name:'Limgrave', dlc:false, bosses:[
+    { id:'tree_sentinel',            name:'Sentinelle de l\'Arbre' },
+    { id:'bloodhound_darriwil',      name:'Chevalier Limier Darriwil' },
+    { id:'crucible_stormhill',       name:'Chevalier du Creuset (Stormhill)' },
+    { id:'beastman_groveside',       name:'Homme-Bête de Farum Azula' },
+    { id:'watchdog_stormfoot',       name:'Gardien Arbre Monde (Stormfoot)' },
+    { id:'tibia_summonwater',        name:'Marin du Tibia (Summonwater)' },
+    { id:'nights_cavalry_limgrave',  name:'Cavalerie Nocturne (Limgrave)' },
+    { id:'deathbird_limgrave',       name:'Oiseau de Mort (Limgrave)' },
+    { id:'margit',                   name:'Margit, le Présage Déchu' },
+    { id:'godrick',                  name:'Godrick le Greffé' },
+  ]},
+  { id:'weeping', name:'Péninsule des Pleurs', dlc:false, bosses:[
+    { id:'watchdog_impalers',        name:'Gardien Arbre Monde (Empaleurs)' },
+    { id:'cemetery_shade_tombsward', name:'Ombre Funèbre (Tombsward)' },
+    { id:'miranda_blighted',         name:'Miranda la Fleur Souillée' },
+    { id:'ulcerated_morne',          name:'Esprit de l\'Arbre Gangréné (Morne)' },
+    { id:'leonine_misbegotten',      name:'Malbâti Léonin (Fort Morne)' },
+    { id:'deathbird_weeping',        name:'Oiseau de Mort (Péninsule)' },
+  ]},
+  { id:'liurnia', name:'Liurnia des Lacs', dlc:false, bosses:[
+    { id:'smarag',                   name:'Dragon Calciné Smarag' },
+    { id:'royal_loretta',            name:'Chevalière Royale Loretta' },
+    { id:'bols',                     name:'Bols, Chevalier Carien' },
+    { id:'erdtree_avatar_liurnia',   name:'Avatar Arbre Monde (Liurnia)' },
+    { id:'cemetery_shade_blackknife',name:'Ombre Funèbre (Catacombes Lame Noire)' },
+    { id:'blackknife_catacombs',     name:'Assassin Lame Noire (Catacombes)' },
+    { id:'tibia_liurnia',            name:'Marin du Tibia (Liurnia)' },
+    { id:'nights_cavalry_liurnia',   name:'Cavalerie Nocturne (Liurnia)' },
+    { id:'deathbird_liurnia',        name:'Oiseau de Mort (Liurnia)' },
+    { id:'crystalian_raya',          name:'Cristalien (Mine de Cristal Raya)' },
+    { id:'magma_wyrm_gael',          name:'Wyrm de Lave (Tunnel de Gaël)' },
+    { id:'magma_wyrm_makar',         name:'Wyrm de Lave Makar' },
+    { id:'onyx_lord',                name:'Seigneur Onyx' },
+    { id:'adan_thief',               name:'Adan, Voleur de Feu' },
+    { id:'bloodhound_lakeside',      name:'Chevalier Limier (Grotte du Lac)' },
+    { id:'adula',                    name:'Dragon Calciné Adula' },
+    { id:'red_wolf',                 name:'Loup Rouge de Radagon' },
+    { id:'rennala',                  name:'Rennala, Reine de la Pleine Lune' },
+  ]},
+  { id:'caelid', name:'Caelid', dlc:false, bosses:[
+    { id:'starscourge_radahn',       name:'Radahn, Fléau des Étoiles' },
+    { id:'commander_oneil',          name:'Commandant O\'Neil' },
+    { id:'rotted_crystalian',        name:'Cristalien Putréfié (Sellia)' },
+    { id:'nox_duo',                  name:'Nox Espadassine & Nox Prêtre' },
+    { id:'crucible_misbegotten_red', name:'Chevalier Creuset & Malbâti (Redmane)' },
+    { id:'decaying_ekzykes',         name:'Ekzykes en Décomposition' },
+    { id:'battlemage_hugues',        name:'Mage Guerrier Hugues' },
+    { id:'nights_cavalry_caelid',    name:'Cavalerie Nocturne (Caelid)' },
+    { id:'watchdog_wardeadcat',      name:'Gardien Arbre Monde (Morts de Guerre)' },
+    { id:'putrid_grave_warden',      name:'Duelliste Gardien Tombe Putride' },
+  ]},
+  { id:'altus', name:'Plateau d\'Altus', dlc:false, bosses:[
+    { id:'godskin_windmill',         name:'Apôtre Peau-de-Dieu (Moulin)' },
+    { id:'draconic_tree_sentinel',   name:'Sentinelle Draconique de l\'Arbre' },
+    { id:'ulcerated_altus',          name:'Esprit de l\'Arbre Gangréné (Altus)' },
+    { id:'tibia_altus',              name:'Marin du Tibia (Altus)' },
+    { id:'nights_cavalry_altus',     name:'Cavalerie Nocturne (Altus)' },
+    { id:'deathbird_altus',          name:'Oiseau de Mort (Altus)' },
+    { id:'wormface',                 name:'Face-de-Ver' },
+    { id:'sanguine_noble',           name:'Noble Sanguinaire' },
+    { id:'blackknife_altus',         name:'Assassin Lame Noire (Altus)' },
+    { id:'watchdog_cliffbottom',     name:'Gardien Arbre Monde (Cliffbottom)' },
+    { id:'perfumer_tricia',          name:'Parfumeur Tricia & Malbâti' },
+    { id:'blackknife_garris',        name:'Assassin Lame Noire & Nécromancien Garris' },
+  ]},
+  { id:'gelmir', name:'Mont Gelmir', dlc:false, bosses:[
+    { id:'fallingstar_gelmir',       name:'Bête Étoile Filante (Mt. Gelmir)' },
+    { id:'magma_wyrm_gelmir',        name:'Wyrm de Lave (Mt. Gelmir)' },
+    { id:'demi_human_margot',        name:'Reine Demi-Humaine Margot' },
+    { id:'kindred_of_rot',           name:'Proche de la Pourriture' },
+    { id:'rykard',                   name:'Rykard, Seigneur du Blasphème' },
+  ]},
+  { id:'leyndell', name:'Leyndell, Capitale Royale', dlc:false, bosses:[
+    { id:'godfrey_golden',           name:'Godfrey (Ombre Dorée)' },
+    { id:'morgott',                  name:'Morgott, le Roi Présage' },
+    { id:'fell_twins',               name:'Jumeaux Néfastes' },
+    { id:'esgar',                    name:'Esgar, Prêtre du Sang' },
+    { id:'ordovis',                  name:'Chevalier Creuset Ordovis' },
+    { id:'kristoff',                 name:'Chevalier Dragon Ancien Kristoff' },
+    { id:'crucible_tree_auriza',     name:'Chevalier Arbre du Creuset (Auriza)' },
+  ]},
+  { id:'underground', name:'Siofra / Nokron / Ainsel', dlc:false, bosses:[
+    { id:'ancestor_spirit',          name:'Esprit Ancestral (Siofra)' },
+    { id:'dragonkin_siofra',         name:'Soldat Draconique (Siofra)' },
+    { id:'mimic_tear',               name:'Larme Mimétique' },
+    { id:'regal_ancestor',           name:'Esprit Ancestral Royal' },
+    { id:'valiant_gargoyle',         name:'Gargouilles Vaillantes (duo)' },
+    { id:'dragonkin_nokstella',      name:'Soldat Draconique (Nokstella)' },
+    { id:'dragonkin_lake_of_rot',    name:'Soldat Draconique (Lac de Putréfaction)' },
+    { id:'astel_naturalborn',        name:'Astel, Né du Néant' },
+  ]},
+  { id:'deeproot', name:'Profondeurs de la Racine', dlc:false, bosses:[
+    { id:'siluria',                  name:'Chevalier du Creuset Siluria' },
+    { id:'lichdragon_fortissax',     name:'Liche-Dragon Fortissax' },
+  ]},
+  { id:'mountaintops', name:'Cimes des Géants', dlc:false, bosses:[
+    { id:'commander_niall',          name:'Commandant Niall (Château Sol)' },
+    { id:'fire_giant',               name:'Géant de Feu' },
+    { id:'borealis',                 name:'Borealis le Brouillard Gelé' },
+    { id:'deathbird_mountaintops',   name:'Oiseau de Mort (Cimes)' },
+    { id:'nights_cavalry_mountaintops', name:'Cavalerie Nocturne (Cimes)' },
+  ]},
+  { id:'consecrated', name:'Champ Consacré', dlc:false, bosses:[
+    { id:'astel_stars',              name:'Astel, Étoiles des Ténèbres' },
+    { id:'nights_cavalry_consecrated', name:'Cavalerie Nocturne (Champ Consacré)' },
+    { id:'putrid_avatar',            name:'Avatar Putride' },
+    { id:'putrid_crystalians_trio',  name:'Trio de Cristaliens Putrides' },
+  ]},
+  { id:'mohgwyn', name:'Palais de Mohgwyn', dlc:false, bosses:[
+    { id:'mohg',                     name:'Mohg, Seigneur du Sang' },
+  ]},
+  { id:'haligtree', name:'Arbre Saint de Miquella', dlc:false, bosses:[
+    { id:'loretta_haligtree',        name:'Loretta, Chevalière de l\'Arbre Saint' },
+    { id:'ulcerated_haligtree',      name:'Esprit de l\'Arbre Gangréné (Arbre Saint)' },
+    { id:'malenia',                  name:'Malenia, Lame de Miquella' },
+  ]},
+  { id:'farum', name:'Farum Azula en Ruines', dlc:false, bosses:[
+    { id:'godskin_duo',              name:'Duo Peau-de-Dieu' },
+    { id:'maliketh',                 name:'Maliketh, la Lame Noire' },
+    { id:'dragonlord_placidusax',    name:'Seigneur-Dragon Placidusax' },
+  ]},
+  { id:'ashen', name:'Leyndell Cendrée', dlc:false, bosses:[
+    { id:'hoarah_loux',              name:'Hoarah Loux / Godfrey, Premier Seigneur Éternel' },
+    { id:'radagon_elden_beast',      name:'Radagon / Bête Éternelle' },
+  ]},
+
+  // ═══════════════ DLC ═══════════════
+  { id:'dlc_gravesite', name:'[DLC] Plaine des Sépulcres', dlc:true, bosses:[
+    { id:'blackgaol_knight',         name:'Chevalier du Donjon Noir' },
+    { id:'black_knight_edredd',      name:'Chevalier Noir Edredd' },
+    { id:'dancing_lion',             name:'Bête Divine Lion Dansant' },
+    { id:'ghostflame_dragon_grave',  name:'Dragon Flamme Fantôme (Plaine)' },
+    { id:'tree_sentinel_dlc',        name:'Sentinelle de l\'Arbre (DLC)' },
+  ]},
+  { id:'dlc_belurat', name:'[DLC] Belurat, Cité-Tour', dlc:true, bosses:[
+    { id:'death_knight_belurat',     name:'Chevalier de la Mort (Belurat)' },
+    { id:'onze',                     name:'Maître Épéiste Demi-Humain Onze' },
+  ]},
+  { id:'dlc_ensis', name:'[DLC] Château Ensis', dlc:true, bosses:[
+    { id:'rellana',                  name:'Rellana, Chevalière aux Deux Lunes' },
+  ]},
+  { id:'dlc_shadow_keep', name:'[DLC] Forteresse de l\'Ombre', dlc:true, bosses:[
+    { id:'golden_hippopotamus',      name:'Hippopotame Doré' },
+    { id:'messmer',                  name:'Messmer l\'Empaleur' },
+    { id:'commander_gaius',          name:'Commandant Gaïus' },
+    { id:'rakshasa',                 name:'Rakshasa' },
+    { id:'scadutree_avatar',         name:'Avatar de l\'Arbre de l\'Ombre' },
+  ]},
+  { id:'dlc_scadu_altus', name:'[DLC] Scadu Altus', dlc:true, bosses:[
+    { id:'nights_cavalry_dlc',       name:'Cavalerie Nocturne (DLC)' },
+    { id:'romina',                   name:'Romina, Sainte du Bourgeon' },
+    { id:'sunflower',                name:'Tournesol (Frontières)' },
+  ]},
+  { id:'dlc_stone_coffin', name:'[DLC] Fissure du Cercueil de Pierre', dlc:true, bosses:[
+    { id:'putrescent_knight',        name:'Chevalier Putréfié' },
+  ]},
+  { id:'dlc_jagged_peak', name:'[DLC] Pic Dentelé', dlc:true, bosses:[
+    { id:'jagged_peak_drake',        name:'Drake du Pic Dentelé' },
+    { id:'ancient_dragon_senessax',  name:'Dragon Ancien Senessax' },
+    { id:'bayle',                    name:'Bayle le Redoutable' },
+  ]},
+  { id:'dlc_cerulean', name:'[DLC] Côte Céruléenne', dlc:true, bosses:[
+    { id:'rugalea',                  name:'Rugalea le Grand Ours Rouge' },
+    { id:'ghostflame_dragon_cerulean',name:'Dragon Flamme Fantôme (Côte)' },
+  ]},
+  { id:'dlc_finger_ruins', name:'[DLC] Ruines du Doigt', dlc:true, bosses:[
+    { id:'metyr',                    name:'Métyr, Mère des Doigts' },
+  ]},
+  { id:'dlc_abyssal', name:'[DLC] Bois Abyssaux', dlc:true, bosses:[
+    { id:'lamenter',                 name:'Lamenteur' },
+    { id:'midra',                    name:'Midra, Seigneur de la Flamme Frénétique' },
+  ]},
+  { id:'dlc_darklight', name:'[DLC] Catacombes Lumière Sombre', dlc:true, bosses:[
+    { id:'curseblade_labirith',      name:'Lame Maudite Labirith' },
+    { id:'gravebird',                name:'Oiseau des Tombes' },
+  ]},
+  { id:'dlc_enir_ilim', name:'[DLC] Enir-Ilim', dlc:true, bosses:[
+    { id:'jori',                     name:'Jori, Grand Inquisiteur' },
+    { id:'promised_consort_radahn',  name:'Radahn, Époux Promis' },
+  ]},
+];
+
+const ALL_BOSSES = AREAS.flatMap(a => a.bosses.map(b => ({ ...b, areaId: a.id, dlc: a.dlc })));
+
+// ── STATE ────────────────────────────────────────────
+let myId    = localStorage.getItem('er_pid');
+let myName  = localStorage.getItem('er_name');
+let myColor = localStorage.getItem('er_color') || COLORS[0];
+
+let players = {};   // { pid: { name, color } }
+let deaths  = {};   // { bossId: { pid: count } }
+let query   = '';
+let areaFilter = '';
+let selColor = myColor;
+
+// ── HELPERS ──────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+function totalDeaths(pid) {
+  return Object.values(deaths).reduce((s, b) => s + (b[pid] || 0), 0);
+}
+function bossTotal(bossId) {
+  const b = deaths[bossId] || {};
+  return Object.values(b).reduce((s, n) => s + n, 0);
+}
+
+// ── FIREBASE ─────────────────────────────────────────
+function listen() {
+  onValue(ref(db, 'players'), s => { players = s.val() || {}; renderAll(); });
+  onValue(ref(db, 'deaths'),  s => { deaths  = s.val() || {}; renderAll(); });
+  document.getElementById('conn-dot').classList.add('ok');
+  document.getElementById('conn-label').textContent = 'En ligne';
+}
+
+async function bump(bossId, pid, delta) {
+  const cur = deaths[bossId]?.[pid] || 0;
+  const next = Math.max(0, cur + delta);
+  await update(ref(db), { [`deaths/${bossId}/${pid}`]: next });
+}
+
+async function savePlayer(name, color) {
+  myId = uid(); myName = name; myColor = color;
+  localStorage.setItem('er_pid', myId);
+  localStorage.setItem('er_name', myName);
+  localStorage.setItem('er_color', myColor);
+  await update(ref(db, `players/${myId}`), { name, color, joinedAt: Date.now() });
+}
+
+// ── RENDER ───────────────────────────────────────────
+function renderAll() {
+  renderBossList();
+  renderLeaderboard();
+  renderHardest();
+  renderStats();
+}
+
+function renderBossList() {
+  const pids = Object.keys(players);
+  const q    = query.toLowerCase();
+
+  // Fill area select once
+  const sel = document.getElementById('area-filter');
+  if (sel.options.length === 1) {
+    AREAS.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.id; o.textContent = a.name; sel.appendChild(o);
+    });
+  }
+
+  let html = '';
+  for (const area of AREAS) {
+    if (areaFilter && area.id !== areaFilter) continue;
+    const filtered = area.bosses.filter(b => !q || b.name.toLowerCase().includes(q));
+    if (!filtered.length) continue;
+
+    const aTotal = area.bosses.reduce((s, b) => s + bossTotal(b.id), 0);
+    const metaStr = `${area.bosses.length} boss${aTotal ? ' · ☠ ' + aTotal : ''}`;
+
+    html += `<div class="area-section">
+      <div class="area-header" onclick="toggleArea('${area.id}')">
+        <span class="area-title">${area.name}</span>
+        <span class="area-meta">${metaStr}</span>
+        <span class="area-arrow" id="arr-${area.id}">▼</span>
+      </div>
+      <div class="area-body" id="ab-${area.id}">
+        <table class="boss-table">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;font-size:0.68rem;color:var(--text-muted);font-weight:400;">Boss</th>
+            ${pids.map(pid => {
+              const p = players[pid];
+              return `<th class="th-player"><span class="th-dot" style="background:${p.color}"></span>${p.name}</th>`;
+            }).join('')}
+          </tr></thead>
+          <tbody>
+            ${filtered.map(boss => {
+              const bt = bossTotal(boss.id);
+              return `<tr class="boss-row">
+                <td class="boss-name-cell">
+                  ${boss.name}
+                  ${area.dlc ? '<span class="dlc-badge">DLC</span>' : ''}
+                  ${bt > 0 ? `<span class="boss-total">☠ ${bt}</span>` : ''}
+                </td>
+                ${pids.map(pid => {
+                  const n   = deaths[boss.id]?.[pid] || 0;
+                  const own = pid === myId;
+                  return `<td class="cell-deaths">
+                    <div class="counter">
+                      ${own ? `<button class="cbtn minus" onclick="bump('${boss.id}','${pid}',-1)">−</button>` : ''}
+                      <span class="cval ${n===0?'z':n>=10?'h':''}">${n}</span>
+                      ${own ? `<button class="cbtn" onclick="bump('${boss.id}','${pid}',1)">+</button>` : ''}
+                    </div>
+                  </td>`;
+                }).join('')}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('boss-list').innerHTML = html || '<div class="empty-msg">Aucun boss trouvé.</div>';
+}
+
+function renderLeaderboard() {
+  const sorted = Object.entries(players)
+    .map(([id, p]) => ({ id, ...p, tot: totalDeaths(id) }))
+    .sort((a, b) => b.tot - a.tot);
+
+  const rankClasses = ['g','s','b'];
+  const medals = ['🥇','🥈','🥉'];
+
+  document.getElementById('leaderboard').innerHTML = sorted.length
+    ? sorted.map((p, i) => `
+        <div class="lb-item ${p.id === myId ? 'me' : ''}">
+          <span class="lb-rank ${rankClasses[i] || ''}">${i < 3 ? medals[i] : i+1}</span>
+          <div class="p-dot" style="background:${p.color}"></div>
+          <span class="lb-name">${p.name}${p.id===myId?' (vous)':''}</span>
+          <span class="lb-deaths ${p.tot===0?'z':''}">${p.tot}</span>
+        </div>`)
+      .join('')
+    : '<div class="empty-msg">Aucun joueur connecté.</div>';
+}
+
+function renderHardest() {
+  const top = ALL_BOSSES
+    .map(b => ({ ...b, tot: bossTotal(b.id) }))
+    .filter(b => b.tot > 0)
+    .sort((a, b) => b.tot - a.tot)
+    .slice(0, 8);
+
+  document.getElementById('hardest').innerHTML = top.length
+    ? top.map(b => `<div class="hb-row"><span class="hb-name">${b.name}</span><span class="hb-count">☠ ${b.tot}</span></div>`).join('')
+    : '<div class="empty-msg">Aucune mort enregistrée.</div>';
+}
+
+function renderStats() {
+  const pids = Object.keys(players);
+  const totalAll    = pids.reduce((s, p) => s + totalDeaths(p), 0);
+  const bossHit     = ALL_BOSSES.filter(b => bossTotal(b.id) > 0).length;
+  const myTot       = myId ? totalDeaths(myId) : 0;
+  const dlcDeaths   = AREAS.filter(a => a.dlc)
+    .flatMap(a => a.bosses)
+    .reduce((s, b) => s + bossTotal(b.id), 0);
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${totalAll}</div><div class="stat-lbl">Morts totales</div></div>
+    <div class="stat-box"><div class="stat-val">${pids.length}</div><div class="stat-lbl">Joueurs</div></div>
+    <div class="stat-box"><div class="stat-val">${bossHit}</div><div class="stat-lbl">Boss affrontés</div></div>
+    <div class="stat-box"><div class="stat-val">${myTot}</div><div class="stat-lbl">Mes morts</div></div>
+  `;
+}
+
+// ── GLOBALS (inline handlers) ─────────────────────────
+window.bump = (bossId, pid, delta) => { if (pid === myId) bump(bossId, pid, delta); };
+window.toggleArea = id => {
+  const body = document.getElementById(`ab-${id}`);
+  const arr  = document.getElementById(`arr-${id}`);
+  const vis  = body.style.display !== 'none';
+  body.style.display = vis ? 'none' : '';
+  arr.classList.toggle('closed', vis);
+};
+
+// ── BADGE ─────────────────────────────────────────────
+function updateBadge() {
+  document.getElementById('badge-name').textContent = myName;
+  document.getElementById('badge-dot').style.background = myColor;
+}
+
+// ── INIT ─────────────────────────────────────────────
+async function init() {
+  // Color picker
+  const picker = document.getElementById('color-picker');
+  COLORS.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'color-opt' + (c === selColor ? ' sel' : '');
+    d.style.background = c;
+    d.onclick = () => {
+      selColor = c;
+      picker.querySelectorAll('.color-opt').forEach(el => el.classList.remove('sel'));
+      d.classList.add('sel');
+    };
+    picker.appendChild(d);
+  });
+
+  document.getElementById('setup-btn').onclick = async () => {
+    const n = document.getElementById('name-input').value.trim();
+    if (!n) { document.getElementById('name-input').focus(); return; }
+    await savePlayer(n, selColor);
+    document.getElementById('setup-modal').classList.add('hidden');
+    updateBadge();
+    listen();
+  };
+
+  document.getElementById('name-input').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('setup-btn').click();
+  };
+
+  document.getElementById('search').oninput = e => { query = e.target.value; renderAll(); };
+  document.getElementById('area-filter').onchange = e => { areaFilter = e.target.value; renderAll(); };
+
+  document.getElementById('player-badge').onclick = () => {
+    const n = prompt('Nouveau nom :', myName);
+    if (n && n.trim()) {
+      myName = n.trim();
+      localStorage.setItem('er_name', myName);
+      update(ref(db, `players/${myId}`), { name: myName });
+      updateBadge();
+    }
+  };
+
+  // Returning player?
+  if (myId) {
+    const snap = await get(ref(db, `players/${myId}`));
+    if (snap.exists()) {
+      const d = snap.val();
+      myName = d.name; myColor = d.color;
+      localStorage.setItem('er_name', myName);
+      localStorage.setItem('er_color', myColor);
+      document.getElementById('setup-modal').classList.add('hidden');
+      updateBadge();
+      listen();
+      return;
+    }
+    localStorage.removeItem('er_pid');
+    myId = null;
+  }
+  // New player → modal stays open
+}
+
+init();
+</script>
+</body>
+</html>
