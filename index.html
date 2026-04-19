@@ -133,6 +133,17 @@
     .cval { min-width: 26px; text-align: center; font-size: 0.88rem; color: var(--text-light); font-weight: 600; }
     .cval.z { color: var(--text-muted); }
     .cval.h { color: var(--red-light); }
+    .cell-inner { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .done-btn {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--dark3); cursor: pointer; font-size: 0.7rem; display: flex;
+      align-items: center; justify-content: center; transition: all 0.15s; color: var(--text-muted);
+    }
+    .done-btn:hover { border-color: #4caf50; color: #4caf50; }
+    .done-btn.done { background: rgba(76,175,80,0.15); border-color: #4caf50; color: #4caf50; }
+    .done-indicator { width: 16px; height: 16px; border-radius: 50%; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; color: #4caf50; opacity: 0.7; }
+    .boss-name-cell.done-row { color: var(--text-muted); }
+    .boss-name-cell.done-row .boss-label { text-decoration: line-through; opacity: 0.6; }
 
     /* ── SIDEBAR ── */
     .s-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 2px; color: var(--gold); margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
@@ -526,8 +537,9 @@ let myId    = localStorage.getItem('er_pid');
 let myName  = localStorage.getItem('er_name');
 let myColor = localStorage.getItem('er_color') || COLORS[0];
 
-let players = {};   // { pid: { name, color } }
-let deaths  = {};   // { bossId: { pid: count } }
+let players   = {};   // { pid: { name, color } }
+let deaths    = {};   // { bossId: { pid: count } }
+let completed = {};   // { bossId: { pid: true } }
 let query   = '';
 let areaFilter = '';
 let selColor = myColor;
@@ -545,10 +557,16 @@ function bossTotal(bossId) {
 
 // ── FIREBASE ─────────────────────────────────────────
 function listen() {
-  onValue(ref(db, 'players'), s => { players = s.val() || {}; renderAll(); });
-  onValue(ref(db, 'deaths'),  s => { deaths  = s.val() || {}; renderAll(); });
+  onValue(ref(db, 'players'),   s => { players   = s.val() || {}; renderAll(); });
+  onValue(ref(db, 'deaths'),    s => { deaths    = s.val() || {}; renderAll(); });
+  onValue(ref(db, 'completed'), s => { completed = s.val() || {}; renderAll(); });
   document.getElementById('conn-dot').classList.add('ok');
   document.getElementById('conn-label').textContent = 'En ligne';
+}
+
+async function toggleDone(bossId, pid) {
+  const isDone = completed[bossId]?.[pid];
+  await update(ref(db), { [`completed/${bossId}/${pid}`]: isDone ? null : true });
 }
 
 async function bump(bossId, pid, delta) {
@@ -612,21 +630,28 @@ function renderBossList() {
           </tr></thead>
           <tbody>
             ${filtered.map(boss => {
-              const bt = bossTotal(boss.id);
+              const bt    = bossTotal(boss.id);
+              const myDone = completed[boss.id]?.[myId];
               return `<tr class="boss-row">
-                <td class="boss-name-cell">
-                  ${boss.name}
+                <td class="boss-name-cell ${myDone ? 'done-row' : ''}">
+                  <span class="boss-label">${boss.name}</span>
                   ${area.dlc ? '<span class="dlc-badge">DLC</span>' : ''}
                   ${bt > 0 ? `<span class="boss-total">☠ ${bt}</span>` : ''}
                 </td>
                 ${pids.map(pid => {
-                  const n   = deaths[boss.id]?.[pid] || 0;
-                  const own = pid === myId;
+                  const n    = deaths[boss.id]?.[pid] || 0;
+                  const own  = pid === myId;
+                  const done = completed[boss.id]?.[pid];
                   return `<td class="cell-deaths">
-                    <div class="counter">
-                      ${own ? `<button class="cbtn minus" onclick="bump('${boss.id}','${pid}',-1)">−</button>` : ''}
-                      <span class="cval ${n===0?'z':n>=10?'h':''}">${n}</span>
-                      ${own ? `<button class="cbtn" onclick="bump('${boss.id}','${pid}',1)">+</button>` : ''}
+                    <div class="cell-inner">
+                      <div class="counter">
+                        ${own ? `<button class="cbtn minus" onclick="bump('${boss.id}','${pid}',-1)">−</button>` : ''}
+                        <span class="cval ${n===0?'z':n>=10?'h':''}">${n}</span>
+                        ${own ? `<button class="cbtn" onclick="bump('${boss.id}','${pid}',1)">+</button>` : ''}
+                      </div>
+                      ${own
+                        ? `<button class="done-btn ${done?'done':''}" onclick="toggleDone('${boss.id}','${pid}')" title="${done?'Marquer non fait':'Marquer comme fait'}">✓</button>`
+                        : done ? `<div class="done-indicator">✓</div>` : ''}
                     </div>
                   </td>`;
                 }).join('')}
@@ -693,11 +718,15 @@ function renderStats() {
 
 // ── GLOBALS (inline handlers) ─────────────────────────
 window.bump = (bossId, pid, delta) => { if (pid === myId) bump(bossId, pid, delta); };
+window.toggleDone = (bossId, pid) => { if (pid === myId) toggleDone(bossId, pid); };
 
 window.deletePlayer = async (pid, name) => {
   if (!confirm(`Supprimer ${name} et toutes ses morts ?`)) return;
   const updates = { [`players/${pid}`]: null };
-  ALL_BOSSES.forEach(b => { updates[`deaths/${b.id}/${pid}`] = null; });
+  ALL_BOSSES.forEach(b => {
+    updates[`deaths/${b.id}/${pid}`]    = null;
+    updates[`completed/${b.id}/${pid}`] = null;
+  });
   await update(ref(db), updates);
   if (pid === myId) {
     localStorage.removeItem('er_pid');
